@@ -50,7 +50,7 @@ def report(days):
             _cases = data[_date][j]
 
             _cases_1 = data[offset(_date,-1)][j]
-            _cases_10 = data[offset(_date,-10)][j]
+            _cases_10 = data[offset(_date,-8)][j]
             _diff1 = _cases - _cases_1
             _diff10 = _cases - _cases_10
 
