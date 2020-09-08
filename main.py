@@ -1,12 +1,6 @@
 import json
-from urllib.request import urlopen
+import requests
 from datetime import datetime, timedelta
-
-url = "https://c19downloads.azureedge.net/downloads/json/coronavirus-cases_latest.json"
-source = json.loads(urlopen(url).read())
-
-print("New data downloaded.")
-print("Last data update: " + source['metadata']['lastUpdatedAt'])
 
 # Subset
 subset = [
@@ -14,23 +8,50 @@ subset = [
     "Southampton", "Fareham", "Gosport", "Portsmouth",
 ]
 
+def read_in_area(area):
+  url = "https://api.coronavirus-staging.data.gov.uk/v1/data?"
+
+  params = {"filters": "areaName="+area,
+            "structure": '{"areaName":"areaName","date":"date","newCases":"newCasesBySpecimenDate","cumCases":"cumCasesBySpecimenDate"}',
+            "format": "json",
+            "page": 1}
+
+  request = requests.get(url, params=params)
+  data = request.json()['data']
+
+  print(area + " data downloaded.")
+  return data
+
+# Subset
+subset = [
+    "Eastleigh", "Test Valley", "Winchester", 
+    "Southampton", "Fareham", "Gosport", "Portsmouth",
+]
+
+source = []
+for area in subset:
+    source += read_in_area(area)
+
+
+
 # All days
-sdate = datetime.strptime("2020-01-01", '%Y-%m-%d')
-edate = datetime.strptime(source['metadata']['lastUpdatedAt'][0:10],
-                          '%Y-%m-%d')
-span = edate - sdate
-days = [(sdate + timedelta(days=i)).strftime("%Y-%m-%d")
+fst_record = datetime.strptime("2020-01-01", '%Y-%m-%d')
+lst_record = max([datetime.strptime(x["date"], '%Y-%m-%d') for x in source])
+span = lst_record - fst_record
+days = [(fst_record + timedelta(days=i)).strftime("%Y-%m-%d")
         for i in range(span.days + 1)]
 
+print("Last updated: "+str(lst_record)[0:10])
+
 # All areas
-areas = set([x["areaName"] for x in source["ltlas"] + source["utlas"]])
+areas = set(subset)
 
 # Table
 data = {day: {area: -1 for area in areas} for day in days}
 
 # Update with data
-for x in source["ltlas"] + source["utlas"]:
-	data[x["specimenDate"]][x["areaName"]] = x["totalLabConfirmedCases"]
+for x in source:
+	data[x["date"]][x["areaName"]] = x["cumCases"]
 
 #LOCF
 locf = {area: 0 for area in areas}
@@ -87,15 +108,5 @@ report(15)
 while True:
 	show_days = input("\nHow many days back? ")
 	if show_days == "":
-		new_area = input("Any other area? ")
-		if new_area == "":
-			break
-		elif new_area in areas:
-			subset = [
-			    new_area,
-			] + subset[0:-1]
-			show_days = 15
-		else:
-			print("\n" + new_area + " not recognized.")
-			show_days = 15
+		break
 	report(int(show_days))
